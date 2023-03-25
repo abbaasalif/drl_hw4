@@ -1,0 +1,12 @@
+Please update this file accordingly, e.g., the train and test scripts, and remove the one you don't implement.
+
+TA will run your test script for evluation. If you use TensorFlow, please add pip install command here.
+
+
+For DQN
+python main.py --train_dqn --model_name dqn1.ckpt -ep 20000 -b 32 -lr 0.00015
+python main.py --test_dqn  --model_name dqn1.ckpt
+
+For PG
+python main.py --train_pg --model_name pg1.ckpt -b 1 -lr 0.0001 -ep 5000
+python main.py --test_pg --model_name pg1.ckpt
