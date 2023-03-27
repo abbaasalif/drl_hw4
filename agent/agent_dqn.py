@@ -10,12 +10,13 @@ np.random.seed(1009)
 torch.cuda.manual_seed(1009)
 torch.manual_seed(1009)
 device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+device = 'cpu'
 print(device)
 
 
 def prepro(o):
     o = np.transpose(o, (2,0,1))
-    o = np.expand_dims(o, axis=0)
+    o = np.expand_dims(o, axis=0)   
     return o
 
 
@@ -68,6 +69,8 @@ class Agent_DQN(Agent):
         
         pass
 
+    def learn(self):
+
     def train(self):
         """
         Implement your training algorithm here
@@ -81,6 +84,7 @@ class Agent_DQN(Agent):
         # YOUR CODE HERE                                            #
         # At the end of train, you need to save your model for test #
         #############################################################
+        best_score = -np.inf
         for episode in range(self.hyper_param['episode']):
             observation = self.env.reset()
             observation = prepro(observation)
@@ -93,13 +97,13 @@ class Agent_DQN(Agent):
                 total_reward += reward
                 self.replay_buffer.append((observation, action, reward, next_observation, done))
                 observation = next_observation
-                self.step_count += 1
-                if self.step_count % 1000 == 0:
+                # self.step_count += 1 
+                if self.step_count % 100 == 0:
                     self.update_target_net()
                 # if self.step_count % 10000 == 0:
                 #     self.update_epsilon()
                 if len(self.replay_buffer) > batch_size:
-                    batch = random.sample(self.replay_buffer, batch_size)
+                    batch = random.sample(self.replay_buffer, batch_size, replace=False)
                     state_shape = batch[0][0].shape
                     # print(state_shape)
                     batch_observation = torch.Tensor([x[0] for x in batch]).squeeze(dim=1).to(device)
@@ -107,29 +111,35 @@ class Agent_DQN(Agent):
                     batch_reward = torch.Tensor([x[2] for x in batch]).to(device)
                     batch_next_observation = torch.Tensor([x[3] for x in batch]).squeeze(dim=1).to(device)
                     batch_done = torch.Tensor([x[4] for x in batch]).to(device)
-                    q_value = self.current_net(batch_observation)
-                    q_value = torch.gather(q_value, 1, batch_action.long().unsqueeze(1)).squeeze(1)
-                    next_q_value = self.target_net(batch_next_observation)
-                    next_q_value = torch.max(next_q_value, dim=1)[0]
-                    expected_q_value = batch_reward + (1 - batch_done) * self.hyper_param['gamma'] * next_q_value
-                    loss = F.smooth_l1_loss(q_value, expected_q_value.detach())
+                    indices = np.arange(batch_size)
+                    q_pred = self.current_net(batch_observation)[indices, batch_action.long()]
+                    # q_value = torch.gather(q_value, 1, batch_action.long().unsqueeze(1)).squeeze(1)
+                    q_next = self.target_net(batch_next_observation).max(dim=1)[0]
+                    # next_q_value = torch.max(next_q_value, dim=1)[0]
+                    q_next[batch_done] = 0.0
+                    q_target = batch_reward + self.hyper_param['gamma'] * next_q_value
+                    # expected_q_value = batch_reward + (1 - batch_done) * self.hyper_param['gamma'] * next_q_value
+                    # loss = F.smooth_l1_loss(q_value, expected_q_value.detach())
+                    #use mse loss
+                    loss = F.mse_loss(q_target, q_pred).to(device)
                     #update current network every 10 steps
-                    if self.step_count % 10 == 0:
-                        self.optimizer.zero_grad()
-                        loss.backward()
-                        self.optimizer.step()
-                    # self.optimizer.zero_grad()
-                    # loss.backward()
-                    # self.optimizer.step()
+                    # if self.step_count % 10 == 0:
+                        # self.optimizer.zero_grad()
+                        # loss.backward()
+                        # self.optimizer.step()
+                    loss.backward()
+                    self.optimizer.step()
                     self.update_epsilon()
-            print("Episode: {}, Reward: {}, Epsilon: {}".format(episode, total_reward, self.epsilon))
+                    self.step_count += 1
+            print("Episode: {}, Reward: {}, Epsilon: {}, Average Score: {}".format(episode, total_reward, self.epsilon))
             self.training_curve.append(total_reward)
             if episode % 100 == 0:
                 model = {'current_net': self.current_net, 'target_net': self.target_net}
                 torch.save(model, "dqn_model_{}.ckpt".format(episode))
         model = {'current_net': self.current_net, 'target_net': self.target_net}
-        torch.save(model, "dqn_model.ckpt")
+        torch.save(model, self.hyper_param['model_name'])
         np.save("dqn_training_curve.npy", self.training_curve)
+    
 
 
     def make_action(self, observation, test=False):
