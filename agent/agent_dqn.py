@@ -91,23 +91,30 @@ class Agent_DQN(Agent):
                 next_observation, reward, done, info = self.env.step(action)
                 next_observation = prepro(next_observation)
                 total_reward += reward
-                self.replay_buffer.append((observation, action, reward, next_observation, done))
+                self.replay_buffer.append((observation, action-1, reward, next_observation, done))
                 observation = next_observation
-                if self.step_count % 1000 == 0:
+                if (self.step_count + 1) % 100 == 0:
                     self.update_target_net()
                 # if self.step_count % 10000 == 0:
                 #     self.update_epsilon()
                 if len(self.replay_buffer) > batch_size:
                     batch = random.sample(self.replay_buffer, batch_size)
-                    state_shape = batch[0][0].shape
+                    #batch_observation, batch_action, batch_reward, batch_next, batch_done = zip(*batch)
+                    #print(batch_observation.shape)
                     # print(state_shape)
                     batch_observation = torch.Tensor([x[0] for x in batch]).squeeze(dim=1).to(device)
+                    # print(batch_observation.shape)
                     batch_action = torch.Tensor([x[1] for x in batch]).to(device)
+                    # print(batch_action.shape)
                     batch_reward = torch.Tensor([x[2] for x in batch]).to(device)
+                    # print(batch_reward.shape)
                     batch_next_observation = torch.Tensor([x[3] for x in batch]).squeeze(dim=1).to(device)
+                    # print(batch_next_observation.shape)
                     batch_done = torch.Tensor([x[4] for x in batch]).to(device)
+                    # print(batch_done.shape)
                     q_value = self.current_net(batch_observation)
                     q_value = torch.gather(q_value, 1, batch_action.long().unsqueeze(1)).squeeze(1)
+                    # print(q_value.shape)
                     next_q_value = self.target_net(batch_next_observation)
                     next_q_value = torch.max(next_q_value, dim=1)[0]
                     expected_q_value = batch_reward + (1 - batch_done) * self.hyper_param['gamma'] * next_q_value
@@ -122,11 +129,11 @@ class Agent_DQN(Agent):
                     self.optimizer.step()
                     self.update_epsilon()
                     self.step_count += 1
-            print("Episode: {}, Reward: {}, Epsilon: {}".format(episode, total_reward, self.epsilon))
+            print("Episode: {}, Reward: {}, Epsilon: {}, Buffer Size: {}".format(episode+1, total_reward, self.epsilon, len(self.replay_buffer)))
             self.training_curve.append(total_reward)
-            if episode % 100 == 0:
+            if (episode+1) % 50 == 0 or episode == 0:
                 model = {'current_net': self.current_net, 'target_net': self.target_net}
-                torch.save(model, "dqn_model_{}.ckpt".format(episode))
+                torch.save(model, "/home/ubuntu/data/ckpts/dqn_model_{}.ckpt".format(episode))
         model = {'current_net': self.current_net, 'target_net': self.target_net}
         torch.save(model, hyper_param['model_name'])
         np.save("dqn_training_curve.npy", self.training_curve)

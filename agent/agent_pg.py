@@ -79,10 +79,7 @@ class Agent_PG(Agent):
         # YOUR CODE HERE                                            #
         # At the end of train, you need to save your model for test #
         #############################################################
-        # initial training
-        self.model.train()
-        self.env.reset()
-        observation = self.env.get_screen()
+        
 
     def make_action(self, observation, test=True):
         """
