@@ -95,38 +95,25 @@ class Agent_DQN(Agent):
                 observation = next_observation
                 if (self.step_count + 1) % 100 == 0:
                     self.update_target_net()
-                # if self.step_count % 10000 == 0:
-                #     self.update_epsilon()
                 if len(self.replay_buffer) > batch_size:
                     batch = random.sample(self.replay_buffer, batch_size)
-                    #batch_observation, batch_action, batch_reward, batch_next, batch_done = zip(*batch)
-                    #print(batch_observation.shape)
-                    # print(state_shape)
-                    batch_observation = torch.Tensor([x[0] for x in batch]).squeeze(dim=1).to(device)
-                    # print(batch_observation.shape)
+                    batch_observation = np.array([x[0] for x in batch]) 
+                    batch_observation = torch.Tensor(batch_observation).squeeze(dim=1).to(device)
                     batch_action = torch.Tensor([x[1] for x in batch]).to(device)
-                    # print(batch_action.shape)
                     batch_reward = torch.Tensor([x[2] for x in batch]).to(device)
-                    # print(batch_reward.shape)
-                    batch_next_observation = torch.Tensor([x[3] for x in batch]).squeeze(dim=1).to(device)
-                    # print(batch_next_observation.shape)
+                    batch_next_observation = np.array([x[3] for x in batch])
+                    batch_next_observation = torch.Tensor(batch_next_observation).squeeze(dim=1).to(device)
                     batch_done = torch.Tensor([x[4] for x in batch]).to(device)
-                    # print(batch_done.shape)
                     q_value = self.current_net(batch_observation)
                     q_value = torch.gather(q_value, 1, batch_action.long().unsqueeze(1)).squeeze(1)
-                    # print(q_value.shape)
                     next_q_value = self.target_net(batch_next_observation)
                     next_q_value = torch.max(next_q_value, dim=1)[0]
                     expected_q_value = batch_reward + (1 - batch_done) * self.hyper_param['gamma'] * next_q_value
                     loss = F.mse_loss(q_value, expected_q_value.detach())
-                    #update current network every 10 steps
-                    # if self.step_count % 10 == 0:
-                    #     self.optimizer.zero_grad()
-                    #     loss.backward()
-                    #     self.optimizer.step()
-                    self.optimizer.zero_grad()
-                    loss.backward()
-                    self.optimizer.step()
+                    if (self.step_count+1) % 10 == 0:
+                        self.optimizer.zero_grad()
+                        loss.backward()
+                        self.optimizer.step()
                     self.update_epsilon()
                     self.step_count += 1
             print("Episode: {}, Reward: {}, Epsilon: {}, Buffer Size: {}".format(episode+1, total_reward, self.epsilon, len(self.replay_buffer)))
@@ -174,4 +161,4 @@ class Agent_DQN(Agent):
 
     def update_epsilon(self):
         if self.epsilon >= 0.025:
-            self.epsilon -= 0.00001
+            self.epsilon -= 0.000001
