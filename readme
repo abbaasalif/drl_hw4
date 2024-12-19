@@ -9,3 +9,5 @@ For the testing script please dont use .ckpt in the script it is added automatic
 For DQN
 python main.py --train_dqn --model_name dqn1.ckpt -ep 20000 -b 32 -lr 0.00015
 python main.py --test_dqn  --model_name dqn1
+
+This plays the Atari game and the current model is hyperparameter optimized using Optuna and surpasses most human players. The weights are not included due to size issues. 
